@@ -1,0 +1,4 @@
+Baby dataset created by randomly picking 10000 user-ids from master dataset.
+10000 users are then expanded one level to get the final list of users.
+Picked only reviews that are written by above users.
+Picket only businesses that belong to above reviews.
