@@ -63,9 +63,9 @@ def writeUserFile(file_path_user, comp_file_path_user, filtered_users):
         json.dump(jo, fw);
         fw.write("\n");
     fw.close();
-    print "1friends:", f1
+    print "#1friend users:", f1
 
-def writeReviewFile(file_path_review, comp_file_path_review, filtered_users, businesses):
+def writeReviewsFile(file_path_review, comp_file_path_review, filtered_users, businesses):
     fw = open(comp_file_path_review, "w");
     f1 = 0; 
     with open(file_path_review) as f:
@@ -74,26 +74,30 @@ def writeReviewFile(file_path_review, comp_file_path_review, filtered_users, bus
         user=jo['user_id'];
         if (not filtered_users.has_key(user)):
             continue;
-        b = jo['business_id'];        
-        businesses[b] = 1;
+        b = jo['business_id'];
+        if (not businesses.has_key(b)):
+            continue;
         json.dump(jo, fw);
         fw.write("\n");
     fw.close();
 
-def writeReviewFile(file_path_review, comp_file_path_review, filtered_users, businesses):
-    fw = open(comp_file_path_review, "w");
+def findBusinesses(file_path_review, filtered_users, businesses):
     f1 = 0; 
+    user_business = {}
     with open(file_path_review) as f:
       for line in f:
         jo = json.loads(line);
         user=jo['user_id'];
         if (not filtered_users.has_key(user)):
             continue;
-        b = jo['business_id'];        
-        businesses[b] = 1;
-        json.dump(jo, fw);
-        fw.write("\n");
-    fw.close();
+        b = jo['business_id'];
+        if (not businesses.has_key(b)):
+          businesses[b] = 1;
+        else:
+          businesses[b] += 1;
+        key = user+"#"+b;
+        user_business[key] = 1;
+    #print "user_business:", len(user_business);
 
 def writeBusinessFile(file_path_user, comp_file_path_user, filtered_users, businesses):
     fw = open(comp_file_path_business, "w");
@@ -104,9 +108,14 @@ def writeBusinessFile(file_path_user, comp_file_path_user, filtered_users, busin
         business=jo['business_id'];
         if (not businesses.has_key(business)):
             continue;
+        if ( businesses[business] <= numUsers/10 ):
+            del businesses[business];
+            continue;
         json.dump(jo, fw);
         fw.write("\n");
     fw.close();
+
+numUsers = 100;
 
 file_path_user = 'yelp_academic_dataset_user.json'; 
 file_path_review = 'yelp_academic_dataset_review.json'; 
@@ -119,11 +128,12 @@ comp_file_path_business = 'comp_yelp_academic_dataset_business.json';
 record_users = {};
 businesses = {};
 findAllUsers(file_path_user, record_users);
-rh = genRandomNumbers(10000, len(record_users));
+rh = genRandomNumbers(numUsers, len(record_users));
 baseUsers = getBaseUsers(file_path_user, rh);
 users = expandBaseToOneLevel(file_path_user, baseUsers, record_users);
-print len(users)
+print "#users:", len(users)
 writeUserFile(file_path_user, comp_file_path_user, users);
-writeReviewFile(file_path_review, comp_file_path_review, users, businesses);
-print len(businesses)
+findBusinesses(file_path_review, users, businesses);
+print "#businesses:", len(businesses)
 writeBusinessFile(file_path_business, comp_file_path_business, users, businesses);
+writeReviewsFile(file_path_review, comp_file_path_review, users, businesses);
