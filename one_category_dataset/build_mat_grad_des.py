@@ -1,3 +1,10 @@
+# -*- coding: utf-8 -*-
+"""
+Created on Sat Apr 29 12:35:06 2017
+
+@author: Aniket
+"""
+
 import pandas as pd
 import re
 import numpy as np
@@ -5,8 +12,8 @@ from sklearn.metrics.pairwise import cosine_similarity
 import warnings
 warnings.filterwarnings("ignore")
 import time
+import scipy
 
-start = time.time()
 
 items_path = r'E:\Users\Dell\Desktop\STUDY_SPRING 17\CSCE 670 Information Storage and Retreival\Project\nightlife\items.txt'
 users_path = r'E:\Users\Dell\Desktop\STUDY_SPRING 17\CSCE 670 Information Storage and Retreival\Project\nightlife\users.txt'
@@ -57,18 +64,52 @@ for user, group in ratings_df.groupby('user_id'):
     
 users_df['topic_distribution'] = temp
 
+
 # 1) Q (m * n) = Relevance matrix of user 'u' to topic of item 'i'
 
-Q = np.empty((len(users_df), len(items_df)), dtype = np.float64)
+Q = np.nan_to_num(1 - scipy.spatial.distance.cdist(list(users_df['topic_distribution']), list(items_df['topic_distribution']), 'cosine'))
 
-user_len =  range(len(users_df))
-item_len =  range(len(items_df))
-b = list(users_df['topic_distribution'])
-c = list(items_df['topic_distribution'])
-for i in range(1):
-    a = []
-    for j in item_len:
-        Q[i,j] = np.dot(b[i][:5], c[j][:5])
-        
-#map(cosine_similarity, [users_df['topic_distribution'][0]]*21337, items_df['topic_distribution'])
+# 2) W (m * m) = Similarity matrix of user 'u' to topic of user 'v'
+
+W = np.nan_to_num(1 - scipy.spatial.distance.cdist(list(users_df['topic_distribution']), list(users_df['topic_distribution']), 'cosine'))
+
+R = np.empty([len(users_df), len(items_df)], dtype = np.float64)
+I = np.empty([len(users_df), len(items_df)], dtype = np.float64)
+
+start = time.time()
+          
+for user, item, rtng in zip(ratings_df['user_id'], ratings_df['item_id'], ratings_df['rating']):
+    R[user, item] = rtng
+    I[user, item] = 1
+
+###############################################################################
+
+#Parameters for Gradient Descent
+
+k = 10                                  #dimension of latent space
+lamda = 0.1
+beta = 30
+gamma = 30
+eta = 30
+
+r = np.mean(ratings_df['rating'])
+
+U = np.empty([len(users_df), k], dtype = np.float64)
+P = np.empty([len(items_df), k], dtype = np.float64)
+
+#Gradient Descent
+
+#def get_rating_diff(R, R):
+def cal_pred_rating(r, U, P):
+    return (r + np.matmul(U, P.transpose()))
+    
+R_cap = cal_pred_rating(r, U, P)
+#error_der_P = np.empty([len(items_df), k], dtype = np.float64)
+
+def cal_error_der_P(I_i, R_i, U):
+    t = np.multiply(I_i, R_i)
+    return np.matmul(t, U)
+    
+error_der_P = map(cal_error_der_P, I.transpose(), (R_cap - R).transpose(), [U]*(len(items_df)))
+
 print('It took {0:0.2f} seconds'.format(time.time() - start))
