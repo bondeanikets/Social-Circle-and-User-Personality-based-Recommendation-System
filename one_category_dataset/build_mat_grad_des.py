@@ -15,10 +15,10 @@ import time
 import scipy
 
 
-items_path = r'E:\Users\Dell\Desktop\STUDY_SPRING 17\CSCE 670 Information Storage and Retreival\Project\nightlife\items.txt'
-users_path = r'E:\Users\Dell\Desktop\STUDY_SPRING 17\CSCE 670 Information Storage and Retreival\Project\nightlife\users.txt'
-ratings_path = r'E:\Users\Dell\Desktop\STUDY_SPRING 17\CSCE 670 Information Storage and Retreival\Project\nightlife\ratings.txt'
-subcategories_path = r'E:\Users\Dell\Desktop\STUDY_SPRING 17\CSCE 670 Information Storage and Retreival\Project\nightlife\subcategories_list.txt'
+items_path = r'items.txt'
+users_path = r'users.txt'
+ratings_path = r'ratings.txt'
+subcategories_path = r'subcategories_list.txt'
 
 
 items_df = pd.read_table(items_path, delimiter = r'::', engine='python')
