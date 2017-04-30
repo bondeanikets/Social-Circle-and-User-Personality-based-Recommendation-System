@@ -1,4 +1,4 @@
-item_id::sub-category
+item_id::sub_category
 0::Bars Dance Clubs 
 1::Lounges Arts & Entertainment 
 2::British Burgers Gastropubs 
