@@ -111,7 +111,7 @@ lamda = 0.1
 beta = 30
 gamma = 30
 eta = 30
-l = 0.1
+l = 0.005
 
 U = 0.1 * np.random.randn(users, k)
 P = 0.1 * np.random.randn(items, k)
@@ -149,7 +149,7 @@ print 'Rcap:', R_cap
 #error_der_P = map(cal_error_der_P, I.transpose(), (R_cap - R).transpose(),
  #                 [U] * items, [H] * items, Q.transpose(), P)
 
-def cal_error_der_U(I_u, R_u, P_, H_, Q_u, U_row, W_row , S_row, U, identifier):
+def cal_error_der_U(I_u, R_u, P_, H_, Q_u, U_row, W_row , W_col , S_row, S_col, U, identifier):
     
     first_fac = np.matmul(np.multiply(I_u, R_u), P_)
     
@@ -157,9 +157,11 @@ def cal_error_der_U(I_u, R_u, P_, H_, Q_u, U_row, W_row , S_row, U, identifier):
     
     third_fac = beta * np.subtract(U_row, np.matmul(S_row,U))
     
+    fourth_fac = -beta *  np.matmul(S_col,np.subtract(U, np.matmul(S,U))) 
+    
     fifth_fac = gamma * np.subtract(U_row, np.matmul(W_row,U))
     
-    #sixth_fac = -gamma * 
+    sixth_fac = -gamma * np.matmul(W_col,np.subtract(U, np.matmul(W,U)))
     
     seventh_fac = eta * np.matmul(np.multiply(np.multiply(I_u, H_), 
                              np.subtract((np.matmul(U_row, P_.transpose())), Q_u)), P_)
@@ -169,11 +171,11 @@ def cal_error_der_U(I_u, R_u, P_, H_, Q_u, U_row, W_row , S_row, U, identifier):
         pass
         #print first_fac, second_fac, third_fac, fifth_fac, seventh_fac
     #############################################
-    third_fac =0
-    fifth_fac =0
+    #third_fac =0
+    #fifth_fac =0
     ############################################
     
-    return first_fac + second_fac + third_fac + fifth_fac + seventh_fac
+    return first_fac + second_fac + third_fac + fourth_fac + fifth_fac + sixth_fac +seventh_fac
     
 #error_der_U = map(cal_error_der_U, I, (R_cap - R), [P] * users, H.transpose(), Q, U)
 
@@ -193,9 +195,10 @@ def cal_error_fn(R, R_cap, H, Q, U, P, S, W, I):
     fifth_fac = (eta/float(2)) * np.sum(np.sum(np.multiply((np.matlib.repmat(H, items, 1)).transpose(), np.multiply(fifth_fac_temp, fifth_fac_temp)), axis = 1), axis = 0)
     
     ####################################
-    third_fac = 0
-    fourth_fac = 0
+    #third_fac = 0
+    #fourth_fac = 0
     ####################################
+    
     print 'first:',first_fac , 'second:', second_fac, 'fifth:', fifth_fac
     
     return first_fac + second_fac + third_fac + fourth_fac + fifth_fac
@@ -215,7 +218,7 @@ identifier = (np.arange(users)).transpose()
 
 while(t<10):
         print t
-        error_der_U = map(cal_error_der_U, I, (R_cap - R), [P] * users, H.transpose(), Q, U, W, S, [U] * users, identifier)
+        error_der_U = map(cal_error_der_U, I, (R_cap - R), [P] * users, H.transpose(), Q, U, W, W.transpose(), S, S.transpose(),  [U] * users, identifier)
         error_der_P = map(cal_error_der_P, I.transpose(), (R_cap - R).transpose(), [U] * items, [H] * items, Q.transpose(), P)
     
         U = np.subtract(U, np.multiply(l, error_der_U))
