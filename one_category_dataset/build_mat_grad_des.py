@@ -15,7 +15,7 @@ import time
 import scipy
 from sklearn.preprocessing import normalize
 from itertools import cycle
-
+import sys
 
 items_path = r'items.txt'
 users_path = r'users.txt'
@@ -66,19 +66,21 @@ for i in range(len(items_df['topic_distribution'])):
 temp, H = [], []
 for user, group in ratings_df.groupby('user_id'):
     temp.append(np.mean(list(items_df.loc[list(group['item_id'])]['topic_distribution']), axis = 0))
-    H.append(len(group)/float(items))
+    H.append(len(group))
     
 users_df['topic_distribution'] = temp
-H = normalize(H, norm ='l2')
+
+#H = np.matrix(H[0])        
+H = normalize(H, norm ='l1')
 
 
 # 1) Q (m * n) = Relevance matrix of user 'u' to topic of item 'i'
 
 Q = np.nan_to_num(1 - scipy.spatial.distance.cdist(list(users_df['topic_distribution']), list(items_df['topic_distribution']), 'cosine'))
 
-# 2) W (m * m) = Similarity matrix of user 'u' to topic of user 'v'
 
-# 3) S (m * m) = Trust of user 'u' on user 'v'
+
+# 2) S (m * m) = Trust of user 'u' on user 'v'
 S = np.zeros((users, users))
 S_sym = np.zeros((users, users))
 
@@ -88,6 +90,7 @@ for i in range(users):
         S_sym[user,friend] = 1
         S_sym[friend,user] = 1
 
+# 3) W (m * m) = Similarity matrix of user 'u' to topic of user 'v'
 W = np.nan_to_num(1 - scipy.spatial.distance.cdist(list(users_df['topic_distribution']), list(users_df['topic_distribution']), 'cosine'))
 W = np.multiply(S_sym,W)  
 W = normalize(W, norm='l2')  
@@ -108,13 +111,15 @@ lamda = 0.1
 beta = 30
 gamma = 30
 eta = 30
-l = 0.5
+l = 0.1
 
 U = 0.1 * np.random.randn(users, k)
 P = 0.1 * np.random.randn(items, k)
 
-r = np.mean(ratings_df['rating'])
-
+#r = np.mean(ratings_df['rating'])
+r = np.empty([len(users_df), len(items_df)], dtype = np.float16)
+for user, rating_group in ratings_df.groupby('user_id'):
+    r[user][:] = np.mean(rating_group['rating'])
 ###############################################################################
 start = time.time()
 #Gradient Descent
@@ -131,14 +136,20 @@ def cal_error_der_P(I_i, R_i, U_, H_, Q_i, P_i):
     third_fac = eta * np.matmul(np.multiply(np.multiply(I_i, H_), 
                              np.subtract((np.matmul(U_, P_i.transpose())).transpose(), Q_i)), U_)
     
+    #print first_fac, second_fac, third_fac
+    
     return first_fac + second_fac + third_fac
 
 
 R_cap = cal_pred_rating(r, U, P)
+
+print 'Rcap:', R_cap
+
+#sys.exit(0)
 #error_der_P = map(cal_error_der_P, I.transpose(), (R_cap - R).transpose(),
  #                 [U] * items, [H] * items, Q.transpose(), P)
 
-def cal_error_der_U(I_u, R_u, P_, H_, Q_u, U_row, W_row , S_row, U):
+def cal_error_der_U(I_u, R_u, P_, H_, Q_u, U_row, W_row , S_row, U, identifier):
     
     first_fac = np.matmul(np.multiply(I_u, R_u), P_)
     
@@ -153,13 +164,22 @@ def cal_error_der_U(I_u, R_u, P_, H_, Q_u, U_row, W_row , S_row, U):
     seventh_fac = eta * np.matmul(np.multiply(np.multiply(I_u, H_), 
                              np.subtract((np.matmul(U_row, P_.transpose())), Q_u)), P_)
     
+    
+    if identifier ==1:
+        pass
+        #print first_fac, second_fac, third_fac, fifth_fac, seventh_fac
+    #############################################
+    third_fac =0
+    fifth_fac =0
+    ############################################
+    
     return first_fac + second_fac + third_fac + fifth_fac + seventh_fac
     
 #error_der_U = map(cal_error_der_U, I, (R_cap - R), [P] * users, H.transpose(), Q, U)
 
-def cal_error_fn(R, R_cap, H, Q, U, P, S, W):
+def cal_error_fn(R, R_cap, H, Q, U, P, S, W, I):
     
-    first_fac = np.sum(np.sum(np.multiply(R - R_cap, R - R_cap), axis = 1), axis = 0) / 2
+    first_fac = np.sum(np.sum(np.multiply(R - np.multiply(R_cap,I), R - np.multiply(R_cap,I)), axis = 1), axis = 0) / float(2)
                       
     second_fac = (lamda/float(2)) *(np.linalg.norm(U,ord='fro') + np.linalg.norm(P,ord='fro'))
     
@@ -172,9 +192,15 @@ def cal_error_fn(R, R_cap, H, Q, U, P, S, W):
     fifth_fac_temp = np.subtract(Q, np.matmul(U, P.transpose()))
     fifth_fac = (eta/float(2)) * np.sum(np.sum(np.multiply((np.matlib.repmat(H, items, 1)).transpose(), np.multiply(fifth_fac_temp, fifth_fac_temp)), axis = 1), axis = 0)
     
-    return (first_fac + second_fac + third_fac + fourth_fac + fifth_fac)
+    ####################################
+    third_fac = 0
+    fourth_fac = 0
+    ####################################
+    print 'first:',first_fac , 'second:', second_fac, 'fifth:', fifth_fac
+    
+    return first_fac + second_fac + third_fac + fourth_fac + fifth_fac
 
-print(cal_error_fn(R, R_cap, H, Q, U, P, S,W))
+print(cal_error_fn(R, R_cap, H, Q, U, P, S,W,I))
 del users_df
 del items_df
 del ratings_df
@@ -185,8 +211,11 @@ P = P.astype(dtype = np.float16)
 
 t=0
 
+identifier = (np.arange(users)).transpose() 
+
 while(t<10):
-        error_der_U = map(cal_error_der_U, I, (R_cap - R), [P] * users, H.transpose(), Q, U, W, S, [U] * users)
+        print t
+        error_der_U = map(cal_error_der_U, I, (R_cap - R), [P] * users, H.transpose(), Q, U, W, S, [U] * users, identifier)
         error_der_P = map(cal_error_der_P, I.transpose(), (R_cap - R).transpose(), [U] * items, [H] * items, Q.transpose(), P)
     
         U = np.subtract(U, np.multiply(l, error_der_U))
@@ -198,7 +227,10 @@ while(t<10):
                 P[i][j] -= (l * error_der_P[i][0][j])
                 
         R_cap = cal_pred_rating(r, U, P)
-        print(cal_error_fn(R, R_cap, H, Q, U, P,S,W))
+        
+        print R_cap
+        
+        print(cal_error_fn(R, R_cap, H, Q, U, P,S,W,I))
         t +=1
     
     
