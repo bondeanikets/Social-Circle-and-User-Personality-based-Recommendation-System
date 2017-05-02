@@ -22,6 +22,17 @@ ratings_test_path = r'nightlife_test.txt'
 subcategories_path = r'subcategories_list.txt'
 
 
+eps = 100                # epsilon 
+
+# mode = 0               # Simple MF model (No social graph)  
+# mode = 1               #  UI (Q)
+# mode = 2               #  II (S)
+# mode = 3               #  IS (W)
+# mode = 4               #  UI + II  (Q,S)
+# mode = 5               #  UI + IS  (Q,W)
+# mode = 6               #  II + IS  (S,W)
+mode = 7               #  ALL   (Q,S,W)
+
 items_df = pd.read_table(items_path, delimiter = r'::', engine='python')
 users_df = pd.read_table(users_path, delimiter = r':', engine='python')
 
@@ -126,7 +137,7 @@ lamda = 0.1
 beta = 30
 gamma = 30
 eta = 30
-l = 0.000005
+l = 0.000008
 
 U = 0.1 * np.random.randn(users, k)
 P = 0.1 * np.random.randn(items, k)
@@ -142,13 +153,17 @@ for user, rating_group in ratings_train_df.groupby('user_id'):
 def cal_pred_rating(r, U, P):
     return (r + np.matmul(U, P.transpose()))
     
-def cal_error_der_P(I_, R_, U_, H_, Q_, P_): 
+def cal_error_der_P(I_, R_, U_, H_, Q_, P_):
+    first_fac = 0
+    second_fac = 0
+    third_fac = 0
     
     first_fac = np.matmul(np.multiply(I_.transpose(), R_.transpose()), U_)
     
     second_fac = lamda * P_
     
-    third_fac = eta * np.matmul(np.multiply(np.multiply(I_.transpose(), np.matlib.repmat(H_, items, 1)), 
+    if(mode in [0,1,4,5,7]):
+        third_fac = eta * np.matmul(np.multiply(np.multiply(I_.transpose(), np.matlib.repmat(H_, items, 1)), 
                              (np.subtract((np.matmul(U_, P_.transpose())), Q_)).transpose()), U_)
     
     return first_fac + second_fac + third_fac
@@ -160,19 +175,33 @@ R_cap = cal_pred_rating(r, U, P)
 
 def cal_error_der_U(I_, R_, P_, H_, Q_, U_, W_, S_):
     
+    first_fac = 0
+    second_fac = 0
+    third_fac = 0
+    fourth_fac = 0
+    fifth_fac = 0
+    sixth_fac = 0
+    seventh_fac = 0
+    
+ 
     first_fac = np.matmul(np.multiply(I_, R_), P_)
     
     second_fac = lamda * U_
     
-    third_fac = beta * np.subtract(U_, np.matmul(S_,U_))
+    if(mode in [2,4,6,7]):
+        third_fac = beta * np.subtract(U_, np.matmul(S_,U_))
+ 
+    if(mode in [2,4,6,7]):
+        fourth_fac = -beta *  np.matmul(S_.transpose(),np.subtract(U, np.matmul(S,U))) 
     
-    fourth_fac = -beta *  np.matmul(S_.transpose(),np.subtract(U, np.matmul(S,U))) 
+    if(mode in [3,5,6,7]):
+        fifth_fac = gamma * np.subtract(U_, np.matmul(W_,U_))
     
-    fifth_fac = gamma * np.subtract(U_, np.matmul(W_,U_))
+    if(mode in [3,5,6,7]):
+        sixth_fac = -gamma * np.matmul(W_.transpose(),np.subtract(U, np.matmul(W,U)))
     
-    sixth_fac = -gamma * np.matmul(W_.transpose(),np.subtract(U, np.matmul(W,U)))
-    
-    seventh_fac = eta * np.matmul(np.multiply(np.multiply(I_, (np.matlib.repmat(H_, items, 1)).transpose()), 
+    if(mode in [1,4,5,7]):
+        seventh_fac = eta * np.matmul(np.multiply(np.multiply(I_, (np.matlib.repmat(H_, items, 1)).transpose()), 
                              np.subtract((np.matmul(U_, P_.transpose())), Q_)), P_)
         
     return first_fac + second_fac + third_fac + fourth_fac + fifth_fac + sixth_fac +seventh_fac
@@ -181,25 +210,31 @@ def cal_error_der_U(I_, R_, P_, H_, Q_, U_, W_, S_):
 
 def cal_error_fn(R, R_cap, H, Q, U, P, S, W, I):
     
+    first_fac = 0
+    second_fac = 0
+    third_fac = 0
+    fourth_fac = 0
+    fifth_fac = 0
+    
+    
     first_fac = np.sum(np.sum(np.multiply(R - np.multiply(R_cap,I), R - np.multiply(R_cap,I)), axis = 1), axis = 0) / float(2)
                       
     second_fac = (lamda/float(2)) *(np.linalg.norm(U,ord='fro') + np.linalg.norm(P,ord='fro'))
     
-    third_fac_temp = np.subtract(U, np.matmul(S,U))
-    third_fac = (beta/float(2)) * ((np.linalg.norm(third_fac_temp,ord='fro'))**2)
-        
-    fourth_fac_temp = np.subtract(U, np.matmul(W,U))
-    fourth_fac = (gamma/float(2)) * ((np.linalg.norm(fourth_fac_temp,ord='fro'))**2)
-        
-    fifth_fac_temp = np.subtract(Q, np.matmul(U, P.transpose()))
-    fifth_fac = (eta/float(2)) * np.sum(np.sum(np.multiply((np.matlib.repmat(H, items, 1)).transpose(), np.multiply(fifth_fac_temp, fifth_fac_temp)), axis = 1), axis = 0)
+    if(mode in [2,4,6,7]):
+        third_fac_temp = np.subtract(U, np.matmul(S,U))
+        third_fac = (beta/float(2)) * ((np.linalg.norm(third_fac_temp,ord='fro'))**2)
     
-    ####################################
-    #third_fac = 0
-    #fourth_fac = 0
-    ####################################
+    if(mode in [3,5,6,7]):
+        fourth_fac_temp = np.subtract(U, np.matmul(W,U))
+        fourth_fac = (gamma/float(2)) * ((np.linalg.norm(fourth_fac_temp,ord='fro'))**2)
     
-    print 'first:',first_fac , 'second:', second_fac, 'fifth:', fifth_fac
+    if(mode in [1,4,5,7]):
+        fifth_fac_temp = np.subtract(Q, np.matmul(U, P.transpose()))
+        fifth_fac = (eta/float(2)) * np.sum(np.sum(np.multiply((np.matlib.repmat(H, items, 1)).transpose(), np.multiply(fifth_fac_temp, fifth_fac_temp)), axis = 1), axis = 0)
+    
+        
+    #print 'first:',first_fac , 'second:', second_fac, 'fifth:', fifth_fac
     
     return first_fac + second_fac + third_fac + fourth_fac + fifth_fac
 
@@ -216,20 +251,16 @@ t=0
 
 identifier = (np.arange(users)).transpose() 
 
+RMSE_train_old = 100
+RMSE_test_old = 100
+
 while(t<100):
         print t
-        #start = time.time()
-        error_der_U = cal_error_der_U(I, (R_cap - R), P, H, Q, U, W, S)
-        #print('It took {0:0.2f} seconds'.format(time.time() - start))
-        
-        #start1 = time.time()
+        error_der_U = cal_error_der_U(I, (R_cap - R), P, H, Q, U, W, S)        
         error_der_P = cal_error_der_P(I, (R_cap - R), U, H, Q, P)
-        #print('It took {0:0.2f} seconds'.format(time.time() - start1))
         
         U = np.subtract(U, np.multiply(l, error_der_U))
         
-        #temp = np.subtract(P, np.multiply(l, error_der_P))
-        #P = temp
         for i in range(users):
             for j in range(k):
                 P[i][j] -= (l * error_der_P[i][j])
@@ -241,13 +272,30 @@ while(t<100):
         RMSE_test = np.sqrt(np.sum(np.square(np.subtract(np.multiply(I_test,R_cap),R_test)))/float(num_ratings_test))
         RMSE_train = np.sqrt(np.sum(np.square(np.subtract(np.multiply(I,R_cap),R)))/float(num_ratings_train))
         
+        
         print 'RMSE_train:', RMSE_train, 'RMSE_test', RMSE_test
         #print R_cap
 
-        #print R_cap
+        print 'Error_train:', cal_error_fn(R, R_cap, H, Q, U, P,S,W,I),'Error_test:', cal_error_fn(R_test, R_cap, H, Q, U, P,S,W,I_test)
+        if t>0:
+            if (RMSE_test-RMSE_test_old > 0):
+                print 'Exiting because of overfitting'
+                sys.exit(0)
+                
+            if (RMSE_train-RMSE_train_old > 0):
+                print 'Decrease learning rate!'
+                sys.exit(0)
+                
+            if (RMSE_train-RMSE_train_old > 0):
+                print 'Decrease learning rate!'
+                sys.exit(0)
+            if ((RMSE_train_old-RMSE_train)<eps):
+                print 'Converged!'
+                sys.exit(0)    
+                
+        RMSE_train_old = RMSE_train
+        RMSE_test_old = RMSE_test
         
-        print 'Error:', cal_error_fn(R, R_cap, H, Q, U, P,S,W,I)
-  
         t +=1
     
     
