@@ -251,8 +251,8 @@ t=0
 
 identifier = (np.arange(users)).transpose() 
 
-RMSE_train_old = 100
-RMSE_test_old = 100
+Error_train_old = 100000
+Error_test_old = 100000
 
 while(t<100):
         print t
@@ -275,26 +275,30 @@ while(t<100):
         
         print 'RMSE_train:', RMSE_train, 'RMSE_test', RMSE_test
         #print R_cap
-
-        print 'Error_train:', cal_error_fn(R, R_cap, H, Q, U, P,S,W,I),'Error_test:', cal_error_fn(R_test, R_cap, H, Q, U, P,S,W,I_test)
+        
+        Error_train = cal_error_fn(R, R_cap, H, Q, U, P,S,W,I)
+        Error_test = cal_error_fn(R_test, R_cap, H, Q, U, P,S,W,I_test)
+        
+        print 'Error_train:', Error_train ,'Error_test:', Error_test
+        
         if t>0:
-            if (RMSE_test-RMSE_test_old > 0):
+            if (Error_test-Error_test_old > 0):
                 print 'Exiting because of overfitting'
                 sys.exit(0)
                 
-            if (RMSE_train-RMSE_train_old > 0):
+            if (Error_train-Error_train_old > 0):
                 print 'Decrease learning rate!'
                 sys.exit(0)
                 
-            if (RMSE_train-RMSE_train_old > 0):
+            if (Error_train-Error_train_old > 0):
                 print 'Decrease learning rate!'
                 sys.exit(0)
-            if ((RMSE_train_old-RMSE_train)<eps):
+            if ((Error_train_old-Error_train)<eps):
                 print 'Converged!'
                 sys.exit(0)    
                 
-        RMSE_train_old = RMSE_train
-        RMSE_test_old = RMSE_test
+        Error_train_old = Error_train
+        Error_test_old = Error_test
         
         t +=1
     
