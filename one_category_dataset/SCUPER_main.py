@@ -14,6 +14,7 @@ import scipy
 from sklearn.preprocessing import normalize
 from itertools import cycle
 import sys
+import pickle
 
 items_path = r'items.txt'
 users_path = r'users.txt'
@@ -22,16 +23,18 @@ ratings_test_path = r'nightlife_test.txt'
 subcategories_path = r'subcategories_list.txt'
 
 
-eps = 100                # epsilon 
+eps = 10               # epsilon 
 
-# mode = 0               # Simple MF model (No social graph)  
-# mode = 1               #  UI (Q)
-# mode = 2               #  II (S)
-# mode = 3               #  IS (W)
+#mode = 0               # Simple MF model (No social graph)  
+#mode = 1               #  UI (Q) + MF
+#mode = 2               #  II (S) + MF
+mode = 3               #  IS (W) + MF
 # mode = 4               #  UI + II  (Q,S)
 # mode = 5               #  UI + IS  (Q,W)
 # mode = 6               #  II + IS  (S,W)
-mode = 7               #  ALL   (Q,S,W)
+# mode = 7               #  ALL   (Q,S,W)
+
+print 'Mode:', mode
 
 items_df = pd.read_table(items_path, delimiter = r'::', engine='python')
 users_df = pd.read_table(users_path, delimiter = r':', engine='python')
@@ -137,10 +140,16 @@ lamda = 0.1
 beta = 30
 gamma = 30
 eta = 30
-l = 0.000008
+l = 0.000005
 
+np.random.seed(0)
 U = 0.1 * np.random.randn(users, k)
 P = 0.1 * np.random.randn(items, k)
+
+######################################################
+U = pickle.load( open( "U_0.pckl", "rb" ) )
+P = pickle.load( open( "P_0.pckl", "rb" ) )
+########################################################
 
 #r = np.mean(ratings_df['rating'])
 r = np.empty([len(users_df), len(items_df)], dtype = np.float16)
@@ -162,7 +171,7 @@ def cal_error_der_P(I_, R_, U_, H_, Q_, P_):
     
     second_fac = lamda * P_
     
-    if(mode in [0,1,4,5,7]):
+    if(mode in [1,4,5,7]):
         third_fac = eta * np.matmul(np.multiply(np.multiply(I_.transpose(), np.matlib.repmat(H_, items, 1)), 
                              (np.subtract((np.matmul(U_, P_.transpose())), Q_)).transpose()), U_)
     
@@ -282,20 +291,21 @@ while(t<100):
         print 'Error_train:', Error_train ,'Error_test:', Error_test
         
         if t>0:
+            
             if (Error_test-Error_test_old > 0):
-                print 'Exiting because of overfitting'
+                if (Error_train-Error_train_old > 0):
+                    print 'Decrease learning rate!'
+                else:
+                   print 'Exiting because of overfitting'
                 sys.exit(0)
                 
             if (Error_train-Error_train_old > 0):
                 print 'Decrease learning rate!'
                 sys.exit(0)
                 
-            if (Error_train-Error_train_old > 0):
-                print 'Decrease learning rate!'
-                sys.exit(0)
             if ((Error_train_old-Error_train)<eps):
                 print 'Converged!'
-                sys.exit(0)    
+            #    sys.exit(0)    
                 
         Error_train_old = Error_train
         Error_test_old = Error_test
@@ -303,4 +313,33 @@ while(t<100):
         t +=1
     
     
+####################################  RESULTS   #######################################################
 
+'''
+Mode:0
+    l = 0.007 
+    RMSE_train: 0.961620057028 RMSE_test 1.02542830799
+    Error_train: 36304.7856541 Error_test: 11235.4794905
+    
+
+Mode:1
+    l= 0.00007
+    RMSE_train: 0.968688415112 RMSE_test: 1.02522384879
+    Error_train: 554949348.92 Error_test: 554923739.508
+    
+Mode:2
+    l = 0.000005 ---> Good convergence
+    l = 0.000007 ---> stops after 2 iterations
+    
+    l = 0.000005   (200 iterations)
+    RMSE_train: 0.964004723038 RMSE_test 1.02523957393
+    Error_train: 49461.2529413 Error_test: 24207.5454704
+
+Mode:3 
+        
+    
+
+    
+
+    
+'''
