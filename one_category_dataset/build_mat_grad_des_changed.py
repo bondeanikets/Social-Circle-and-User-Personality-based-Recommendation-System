@@ -19,18 +19,13 @@ import sys
 
 items_path = r'items.txt'
 users_path = r'users.txt'
-ratings_train_path = r'nightlife_training.txt'
-ratings_test_path = r'nightlife_test.txt'
+ratings_path = r'ratings.txt'
 subcategories_path = r'subcategories_list.txt'
 
 
 items_df = pd.read_table(items_path, delimiter = r'::', engine='python')
 users_df = pd.read_table(users_path, delimiter = r':', engine='python')
-
-#ratings_df = pd.read_table(ratings_path, delimiter = r'::', engine='python')
-
-ratings_train_df = pd.read_table(ratings_train_path, delimiter = r'::', engine='python')
-ratings_test_df = pd.read_table(ratings_test_path, delimiter = r'::', engine='python')
+ratings_df = pd.read_table(ratings_path, delimiter = r'::', engine='python')
 
 items = len(items_df)
 users = len(users_df)
@@ -69,14 +64,14 @@ for i in range(len(items_df['topic_distribution'])):
 #m = number of users, n = number of items
 
 temp, H = [], []
-for user, group in ratings_train_df.groupby('user_id'):
+for user, group in ratings_df.groupby('user_id'):
     temp.append(np.mean(list(items_df.loc[list(group['item_id'])]['topic_distribution']), axis = 0))
     H.append(len(group))
     
 users_df['topic_distribution'] = temp
 
 #H = np.matrix(H[0])        
-H = normalize(H, norm ='l1')
+H = normalize(H[0], norm ='l1')
 
 
 # 1) Q (m * n) = Relevance matrix of user 'u' to topic of item 'i'
@@ -102,24 +97,10 @@ W = normalize(W, norm='l2')
 
 R = np.empty([len(users_df), len(items_df)], dtype = np.float16)
 I = np.empty([len(users_df), len(items_df)], dtype = np.float16)
-
-R_test = np.empty([len(users_df), len(items_df)], dtype = np.float16)
-I_test = np.empty([len(users_df), len(items_df)], dtype = np.float16)
-
-
-num_ratings_train = 0;        
-for user, item, rtng in zip(ratings_train_df['user_id'], ratings_train_df['item_id'], ratings_train_df['rating']):
+        
+for user, item, rtng in zip(ratings_df['user_id'], ratings_df['item_id'], ratings_df['rating']):
     R[user, item] = rtng
     I[user, item] = 1
-    num_ratings_train +=1;
-
-    
-num_ratings_test = 0;
-for user, item, rtng in zip(ratings_test_df['user_id'], ratings_test_df['item_id'], ratings_test_df['rating']):
-    R_test[user, item] = rtng
-    I_test[user, item] = 1
-    num_ratings_test +=1;
-
 
 ###############################################################################
 
@@ -130,32 +111,30 @@ lamda = 0.1
 beta = 30
 gamma = 30
 eta = 30
-l = 0.005
+l = 0.000005
 
 U = 0.1 * np.random.randn(users, k)
 P = 0.1 * np.random.randn(items, k)
 
 #r = np.mean(ratings_df['rating'])
 r = np.empty([len(users_df), len(items_df)], dtype = np.float16)
-for user, rating_group in ratings_train_df.groupby('user_id'):
+for user, rating_group in ratings_df.groupby('user_id'):
     r[user][:] = np.mean(rating_group['rating'])
 ###############################################################################
-start = time.time()
+
 #Gradient Descent
 
 def cal_pred_rating(r, U, P):
     return (r + np.matmul(U, P.transpose()))
     
-def cal_error_der_P(I_i, R_i, U_, H_, Q_i, P_i): 
+def cal_error_der_P(I_, R_, U_, H_, Q_, P_): 
     
-    first_fac = np.matmul(np.multiply(I_i, R_i), U_)
+    first_fac = np.matmul(np.multiply(I_.transpose(), R_.transpose()), U_)
     
-    second_fac = lamda * P_i
+    second_fac = lamda * P_
     
-    third_fac = eta * np.matmul(np.multiply(np.multiply(I_i, H_), 
-                             np.subtract((np.matmul(U_, P_i.transpose())).transpose(), Q_i)), U_)
-    
-    #print first_fac, second_fac, third_fac
+    third_fac = eta * np.matmul(np.multiply(np.multiply(I_.transpose(), np.matlib.repmat(H_, items, 1)), 
+                             (np.subtract((np.matmul(U_, P_.transpose())), Q_)).transpose()), U_)
     
     return first_fac + second_fac + third_fac
 
@@ -164,38 +143,23 @@ R_cap = cal_pred_rating(r, U, P)
 
 #print 'Rcap:', R_cap
 
-#sys.exit(0)
-#error_der_P = map(cal_error_der_P, I.transpose(), (R_cap - R).transpose(),
- #                 [U] * items, [H] * items, Q.transpose(), P)
-
-def cal_error_der_U(I_u, R_u, P_, H_, Q_u, U_row, W_row , W_col , S_row, S_col, U, identifier):
+def cal_error_der_U(I_, R_, P_, H_, Q_, U_, W_, S_):
     
-    first_fac = np.matmul(np.multiply(I_u, R_u), P_)
+    first_fac = np.matmul(np.multiply(I_, R_), P_)
     
-    second_fac = lamda * U_row
+    second_fac = lamda * U_
     
-    third_fac = beta * np.subtract(U_row, np.matmul(S_row,U))
+    third_fac = beta * np.subtract(U_, np.matmul(S_,U_))
     
-    #fourth_fac = -beta *  np.matmul(S_col,np.subtract(U, np.matmul(S,U))) 
+    fourth_fac = -beta *  np.matmul(S_.transpose(),np.subtract(U, np.matmul(S,U))) 
     
-    fifth_fac = gamma * np.subtract(U_row, np.matmul(W_row,U))
+    fifth_fac = gamma * np.subtract(U_, np.matmul(W_,U_))
     
-    #sixth_fac = -gamma * np.matmul(W_col,np.subtract(U, np.matmul(W,U)))
+    sixth_fac = -gamma * np.matmul(W_.transpose(),np.subtract(U, np.matmul(W,U)))
     
-    seventh_fac = eta * np.matmul(np.multiply(np.multiply(I_u, H_), 
-                             np.subtract((np.matmul(U_row, P_.transpose())), Q_u)), P_)
-    
-    
-    if identifier ==1:
-        pass
-        #print first_fac, second_fac, third_fac, fifth_fac, seventh_fac
-    #############################################
-    #third_fac =0
-    fourth_fac=0
-    #fifth_fac =0
-    sixth_fac=0
-    ############################################
-    
+    seventh_fac = eta * np.matmul(np.multiply(np.multiply(I_, (np.matlib.repmat(H_, items, 1)).transpose()), 
+                             np.subtract((np.matmul(U_, P_.transpose())), Q_)), P_)
+        
     return first_fac + second_fac + third_fac + fourth_fac + fifth_fac + sixth_fac +seventh_fac
     
 #error_der_U = map(cal_error_der_U, I, (R_cap - R), [P] * users, H.transpose(), Q, U)
@@ -227,7 +191,7 @@ def cal_error_fn(R, R_cap, H, Q, U, P, S, W, I):
 print(cal_error_fn(R, R_cap, H, Q, U, P, S,W,I))
 del users_df
 del items_df
-del ratings_train_df
+del ratings_df
 
 
 U = U.astype(dtype = np.float16)
@@ -237,32 +201,30 @@ t=0
 
 identifier = (np.arange(users)).transpose() 
 
-while(t<10):
+while(t<100):
         print t
-        error_der_U = map(cal_error_der_U, I, (R_cap - R), [P] * users, H.transpose(), Q, U, W, W.transpose(), S, S.transpose(),  [U] * users, identifier)
-        error_der_P = map(cal_error_der_P, I.transpose(), (R_cap - R).transpose(), [U] * items, [H] * items, Q.transpose(), P)
-    
+        #start = time.time()
+        error_der_U = cal_error_der_U(I, (R_cap - R), P, H, Q, U, W, S)
+        #print('It took {0:0.2f} seconds'.format(time.time() - start))
+        
+        #start1 = time.time()
+        error_der_P = cal_error_der_P(I, (R_cap - R), U, H, Q, P)
+        #print('It took {0:0.2f} seconds'.format(time.time() - start1))
+        
         U = np.subtract(U, np.multiply(l, error_der_U))
         
         #temp = np.subtract(P, np.multiply(l, error_der_P))
         #P = temp
         for i in range(users):
             for j in range(k):
-                P[i][j] -= (l * error_der_P[i][0][j])
+                P[i][j] -= (l * error_der_P[i][j])
                 
         R_cap = cal_pred_rating(r, U, P)
         
-        print 'before RMSE' 
-        RMSE_test = np.sqrt(np.sum(np.square(np.subtract(np.multiply(I_test,R_cap),R_test)))/float(num_ratings_test))
-        RMSE_train = np.sqrt(np.sum(np.square(np.subtract(np.multiply(I,R_cap),R)))/float(num_ratings_train))
-        
-        print 'RMSE_train:', RMSE_train, 'RMSE_test', RMSE_test
         #print R_cap
         
-       # print(cal_error_fn(R, R_cap, H, Q, U, P,S,W,I))
+        print(cal_error_fn(R, R_cap, H, Q, U, P,S,W,I))
         t +=1
     
     
-print('It took {0:0.2f} seconds'.format(time.time() - start))
-
 
