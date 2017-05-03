@@ -140,7 +140,7 @@ lamda = 0.1
 beta = 30
 gamma = 30
 eta = 30
-l = 0.000006
+l = 0.000005
 
 np.random.seed(0)
 U = 0.1 * np.random.randn(users, k)
@@ -365,7 +365,11 @@ Mode:2
 Mode:3 
     l = 
         
-    
+Mode:7
+    l = l = 0.000005
+    RMSE_train: 0.965254629869 RMSE_test 1.02516364926
+    MAE_train: 0.763940828278 MAE_test 0.806262557367
+    Error_train: 554286372.681 Error_test: 554261022.647    
 
     
 
