@@ -28,11 +28,11 @@ eps = 10               # epsilon
 #mode = 0               # Simple MF model (No social graph)  
 #mode = 1               #  UI (Q) + MF
 #mode = 2               #  II (S) + MF
-mode = 3               #  IS (W) + MF
+#mode = 3               #  IS (W) + MF
 # mode = 4               #  UI + II  (Q,S)
 # mode = 5               #  UI + IS  (Q,W)
 # mode = 6               #  II + IS  (S,W)
-# mode = 7               #  ALL   (Q,S,W)
+mode = 7               #  ALL   (Q,S,W)
 
 print 'Mode:', mode
 
@@ -140,7 +140,7 @@ lamda = 0.1
 beta = 30
 gamma = 30
 eta = 30
-l = 0.000005
+l = 0.000006
 
 np.random.seed(0)
 U = 0.1 * np.random.randn(users, k)
@@ -263,7 +263,17 @@ identifier = (np.arange(users)).transpose()
 Error_train_old = 100000
 Error_test_old = 100000
 
-while(t<100):
+Error_list_train = []
+Error_list_test = []
+
+RMSE_list_train = []
+RMSE_list_test = []
+
+MAE_list_train = []
+MAE_list_test = []
+
+
+while(t<10000):
         print t
         error_der_U = cal_error_der_U(I, (R_cap - R), P, H, Q, U, W, S)        
         error_der_P = cal_error_der_P(I, (R_cap - R), U, H, Q, P)
@@ -281,8 +291,11 @@ while(t<100):
         RMSE_test = np.sqrt(np.sum(np.square(np.subtract(np.multiply(I_test,R_cap),R_test)))/float(num_ratings_test))
         RMSE_train = np.sqrt(np.sum(np.square(np.subtract(np.multiply(I,R_cap),R)))/float(num_ratings_train))
         
+        MAE_test = np.sum(np.abs(np.subtract(np.multiply(I_test,R_cap),R_test))/float(num_ratings_test))
+        MAE_train = np.sum(np.abs(np.subtract(np.multiply(I,R_cap),R))/float(num_ratings_train))
         
         print 'RMSE_train:', RMSE_train, 'RMSE_test', RMSE_test
+        print 'MAE_train:', MAE_train, 'MAE_test', MAE_test
         #print R_cap
         
         Error_train = cal_error_fn(R, R_cap, H, Q, U, P,S,W,I)
@@ -295,9 +308,10 @@ while(t<100):
             if (Error_test-Error_test_old > 0):
                 if (Error_train-Error_train_old > 0):
                     print 'Decrease learning rate!'
+                    sys.exit(0)
                 else:
                    print 'Exiting because of overfitting'
-                sys.exit(0)
+                
                 
             if (Error_train-Error_train_old > 0):
                 print 'Decrease learning rate!'
@@ -310,6 +324,16 @@ while(t<100):
         Error_train_old = Error_train
         Error_test_old = Error_test
         
+        Error_list_train.append(Error_train)
+        Error_list_test.append(Error_test)
+        
+        RMSE_list_train.append(RMSE_train)
+        RMSE_list_test.append(RMSE_test)
+        
+        MAE_list_train.append(MAE_train)
+        MAE_list_test.append(MAE_test)
+        
+        
         t +=1
     
     
@@ -318,12 +342,14 @@ while(t<100):
 '''
 Mode:0
     l = 0.007 
+    
     RMSE_train: 0.961620057028 RMSE_test 1.02542830799
     Error_train: 36304.7856541 Error_test: 11235.4794905
     
 
 Mode:1
     l= 0.00007
+    
     RMSE_train: 0.968688415112 RMSE_test: 1.02522384879
     Error_train: 554949348.92 Error_test: 554923739.508
     
@@ -332,10 +358,12 @@ Mode:2
     l = 0.000007 ---> stops after 2 iterations
     
     l = 0.000005   (200 iterations)
+    
     RMSE_train: 0.964004723038 RMSE_test 1.02523957393
     Error_train: 49461.2529413 Error_test: 24207.5454704
 
 Mode:3 
+    l = 
         
     
 
