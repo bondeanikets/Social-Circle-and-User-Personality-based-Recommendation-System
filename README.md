@@ -24,6 +24,13 @@ Sudheer Dantuluri
 
 The latest changes are mantained on the master branch
 
+* All the codes are present in the notebook "project.ipynb" in the Master folder
+
+* The processed datasets, initial conditions for the gradient descent, standalone codes are present in the "one_category_dataset" folder.
+
+Note: Please clone the entire Master directory to retain the strucutre of the code and avoid any dependencies.
+
+
 **Setting up environment**
 
 You will need to install the following packages on you python environment
