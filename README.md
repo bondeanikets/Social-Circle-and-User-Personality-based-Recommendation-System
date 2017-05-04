@@ -43,3 +43,5 @@ You will need to install the following packages on you python environment
 **Running the Program**
 
 Our complete program is ported to the Notebook [Project.ipynb](https://github.com/tjnagaraj/Information-Retrieval-Project/blob/master/project.ipynb) and a detailed flow with explanations is provided. Please clone the repository so that the strucutre is preserved.
+
+**Note: ** Some equations(written in Latex) in the Notebook are not processed by the browser. So, please clone the repository to see a full view. I apologize for the inconvenience!
